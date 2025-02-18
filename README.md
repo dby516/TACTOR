@@ -113,5 +113,4 @@ Now, launch the Client app locally and enter your server's IP address to connect
 
 ---
 
-If you encounter any issues, please refer to the official documentation or seek assistance from the community. Enjoy your experience with Isaac Sim and Isaac Lab!
 
