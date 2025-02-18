@@ -1,136 +1,117 @@
 # README
 
-## Setup
+## Setup Guide
 
-#### Isaac Sim & Isaac Lab Installation
+Welcome! This guide will walk you through the installation of Isaac Sim and Isaac Lab on both remote servers and local machines. Follow these steps carefully to ensure a smooth setup experience.
 
-##### On remote server
+### Isaac Sim & Isaac Lab Installation
 
-Create conda environment.
+#### Installing on a Remote Server
 
-```
+##### 1. Create a Conda Environment
+To begin, set up a Conda environment with Python 3.10:
+```bash
 conda create -n env_isaacsim python=3.10
 conda activate env_isaacsim
-# CUDA 12
 pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cu121
 ```
 
-Pip install Isaac Sim. Refer to [Isaac Sim Documentation](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/install_python.html#isaac-sim-app-install-pip).
-
-```
+##### 2. Install Isaac Sim
+You can find detailed instructions in the [Isaac Sim Documentation](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/install_python.html#isaac-sim-app-install-pip).
+```bash
 pip install isaacsim[all]==4.5.0 --extra-index-url https://pypi.nvidia.com
 ```
 
-Install extensions (optional).
-
-```
+If you need extensions, install them with:
+```bash
 pip install isaacsim[extscache]==4.5.0 --extra-index-url https://pypi.nvidia.com
 ```
 
-Test:
-
-```
+##### 3. Verify Installation
+To ensure everything is installed correctly, run:
+```bash
 isaacsim
 ```
 
-Test in python script.
-
+You can also verify it using a simple Python script:
 ```python
 from isaacsim import SimulationApp
-
 simulation_app = SimulationApp({"headless": True})
-## perform any Isaac Sim / Omniverse imports after instantiating the class
 ```
 
-Now install IsaacLab. Refer to [Isaac Lab Documentation](https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/pip_installation.html).
-
-Clone git repo:
-
-```
+##### 4. Install Isaac Lab
+Refer to the [Isaac Lab Documentation](https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/pip_installation.html) for more details.
+```bash
 git clone git@github.com:isaac-sim/IsaacLab.git
+cd IsaacLab
+./isaaclab.sh --install  # or "./isaaclab.sh -i"
 ```
 
-Install environmental dependencies:
-
-```
-./isaaclab.sh --install # or "./isaaclab.sh -i"
-```
-
-Install only one specific framework(optional):
-
-```
+To install a specific framework (optional):
+```bash
 ./isaaclab.sh --install rl_games
 ```
+Valid options: `rl_games`, `rsl_rl`, `sb3`, `skrl`, `robomimic`, `none`.
 
-The valid options are `rl_games`, `rsl_rl`, `sb3`, `skrl`, `robomimic`, `none`.
-
-
-
-Run Lab scripts:
-
-```
-cd IsaacLab
+##### 5. Running Isaac Lab Scripts
+```bash
 ./isaaclab.sh -p scripts/tutorials/00_sim/create_empty.py
 ```
 
-Run RL training (in headless mode):
-
-```
+##### 6. Running RL Training in Headless Mode
+```bash
 ./isaaclab.sh -p scripts/reinforcement_learning/rl_game/train.py --task=Isaac-Ant-v0 --headless
 ```
 
+---
 
+#### Installing on a Local Machine
 
-##### On local machine
+For workstation installation, please follow the [official guide](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/install_workstation.html).
 
-Refer to [Work Station Installation](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/install_workstation.html).
+##### 1. Download and Extract Isaac Sim
+To get started, download Isaac Sim from the [official page](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/download.html).
 
-Download latest IsaacSim package. For [Windows/Linux](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/download.html).
-
-Setup workstation.
-
-```
-# For Windows
-# Download the file into your_directory\
-mkdir your_directory\isaacsim
-cd your_directory\isaacsim
+For Windows/Linux:
+```bash
+mkdir your_directory/isaacsim
+cd your_directory/isaacsim
 tar -xvzf "isaac-sim-standalone@4.5.0-rc.36+release.19112.f59b3005.gl.windows-x86_64.release.zip"
 cd isaacsim
 post_install.bat
 isaac-sim.selector.bat
 ```
 
-You can run Isaac Sim Application by selecting **Isaac Sim Full** and clicking START.
+To launch Isaac Sim, select **Isaac Sim Full** and click **START**.
 
+---
 
+### Setting Up Streaming
 
-#### Streaming
+##### 1. Install the Streaming Client
+Download the **Isaac Sim WebRTC Streaming Client** from the [latest release](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/download.html#isaac-sim-latest-release).
 
-Download **Isaac Sim WebRTC Streaming Client** from the [Latest Release](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/download.html#isaac-sim-latest-release) section for your platform.
+For detailed guidance, refer to the [Livestream Clients Documentation](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/manual_livestream_clients.html).
 
-Refer to [Livestream Clients](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/manual_livestream_clients.html).
-
-Try running Isaac Sim Streaming Server-Client on your local machine.
-
-Run the Server:
-
-```
-cd the_directory_you_install_isaacsim\
+##### 2. Running the Streaming Server Locally
+Run the following command to start the streaming server:
+```bash
+cd the_directory_you_install_isaacsim/
 isaac-sim.streaming.bat
 ```
 
-Run the **Isaac Sim WebRTC Streaming Client** app and enter 127.0.0.1 as your server address.
+Launch the **Isaac Sim WebRTC Streaming Client**, and enter `127.0.0.1` as the server address.
 
-
-
-If succeed, run the streaming Server on remote machine:
-
-(for example, run create_empty.py)
-
-```
+##### 3. Running the Streaming Server on a Remote Machine
+To run an example (e.g., `create_empty.py`):
+```bash
 cd IsaacLab
 ./isaaclab.sh -p scripts/tutorials/00_sim/create_empty.py --livestream 2
 ```
 
-Then, run the Client app locally and enter your server IP as your server address.
+Now, launch the Client app locally and enter your server's IP address to connect.
+
+---
+
+If you encounter any issues, please refer to the official documentation or seek assistance from the community. Enjoy your experience with Isaac Sim and Isaac Lab!
 
