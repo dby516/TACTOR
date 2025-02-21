@@ -4,14 +4,31 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-This script demonstrates different single-arm manipulators.
+UR10e with Allegro Hand Manipulator Demo
+========================================
+
+This script demonstrates the simulation of a single UR10e robotic arm paired with an Allegro Hand manipulator
+using the Isaac Lab framework. It enables testing and visualization of the robot's control, movement, and 
+manipulation capabilities in a simulated environment.
+
+Usage:
+------
+To run the demo, execute the following command from the root of the Isaac Lab project:
 
 .. code-block:: bash
+    run headlessly:
+    .external_tools/IsaacLab/isaaclab.sh -p scripts/demo_ur10e_allegro.py --headless
+    livestreaming with WebRTC:
+    .external_tools/IsaacLab/isaaclab.sh -p scripts/demo_ur10e_allegro.py --livestream 2
 
-    # Usage
-    .external_tools/IsaacLab/isaaclab.sh -p scripts/demos/arms.py
+
+Dependencies:
+-------------
+- Isaac Lab framework
+- Appropriate GPU drivers for simulation
 
 """
+
 
 """Launch Isaac Sim Simulator first."""
 
