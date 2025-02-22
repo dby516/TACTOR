@@ -67,13 +67,14 @@ from isaaclab_assets import (
     FRANKA_PANDA_CFG,
     UR10_CFG,
     UR5_CFG,
-    UR10e_ALLEGRO_CFG,
     KINOVA_JACO2_N7S300_CFG,
     KINOVA_JACO2_N6S300_CFG,
     KINOVA_GEN3_N7_CFG,
     SAWYER_CFG,
     ALLEGRO_HAND_CFG
 )
+
+from ..assets import UR10e_ALLEGRO_CFG
 
 # isort: on
 
