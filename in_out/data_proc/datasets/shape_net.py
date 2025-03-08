@@ -25,6 +25,9 @@ with open('shapenetcore.taxonomy.json', 'r') as file:
 # Build the dictionary
 synth_id_to_category_dict = extract_categories(taxonomy_data)
 
+# Invert the key-value pairs
+inverted_data = {value: key for key, value in synth_id_to_category_dict.items()}
+
 # Write the dictionary to a JSON file
 with open('categories_root.json', 'w') as outfile:
-    json.dump(synth_id_to_category_dict, outfile, indent=4)
+    json.dump(inverted_data, outfile, indent=4)
