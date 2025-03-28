@@ -117,10 +117,10 @@ Now, launch the Client app locally and enter your server's IP address to connect
 We use a custom-built TacTip sensor with 64 contact sensors evenly distributed on a hemispherical fingertip.
 
 **Sensor Design:**  
-<img src="results/demos/cus_tactip.png">
+<img src="results/demos/cus_tactip.png" width="300px">
 
 **Tactile Data Visualization:**  
 <img src="results/demos/tactile_vis.gif">
 
 **Data Collection:**  
-<img src="results/demos/data_collect.mp4">
+<img src="results/demos/data_collect.gif">
