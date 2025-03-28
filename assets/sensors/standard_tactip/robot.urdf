@@ -1,0 +1,18 @@
+<robot>
+    <link name="root_link"/>
+    <joint name="root_to_base" type="fixed">
+        <parent link="root_link"/>
+        <child link="link_1"/>
+    </joint>
+    <link name="link_1"/>
+
+    <sensor name="custom_lidar" type="ray" update_rate="30" isaac_sim_config="../lidar_sensor_template/lidar_template.json">
+        <parent link="link_1"/>
+        <origin xyz="0.5 0.5 0" rpy="0 0 0"/>
+    </sensor>
+
+    <sensor name="preconfigured_lidar" type="ray" update_rate="30" isaac_sim_config="Velodyne_VLS128">
+        <parent link="link_1"/>
+        <origin xyz="0.5 1.5 0" rpy="0 0 0"/>
+    </sensor>
+</robot>
