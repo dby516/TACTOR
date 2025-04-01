@@ -1,0 +1,38 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.so
+
+# VS Code settings
+.vscode/
+
+# Log
+logs/
+*.log
+*.out
+
+# Checkpoints
+checkpoints/
+*.pth
+*.pt
+*.ckpt
+
+# Dataset artifacts
+data/
+
+# Hydra configs
+hydra_outputs/
+multirun/
+
+# Simulator cache
+*.usd_cache/
+*.usd_preview_surface/
+
+# Omniverse-related
+*.sim_state.json
+*.material.json
+
+# Temporary or hidden files
+*.swp
+*~
+.DS_Store
