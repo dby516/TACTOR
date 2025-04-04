@@ -61,6 +61,7 @@ class TactorEnvCfg(DirectRLEnvCfg):
             mass_props=sim_utils.MassPropertiesCfg(mass=5.0),
             rigid_props=sim_utils.RigidBodyPropertiesCfg(disable_gravity=True, max_linear_velocity=0.0),
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.5, 1.0, 0.0), metallic=0.2),
+            collision_props=sim_utils.CollisionPropertiesCfg(),
         ),
         init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.5), rot=(1.0, 0.0, 0.0, 0.0)),
     )
