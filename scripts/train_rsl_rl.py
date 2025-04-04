@@ -1,20 +1,27 @@
 """
 Usage:
-./external_tools/IsaacLab/isaaclab.sh -p scripts/train.py --task Isaac-Tactor-RL-v0 --num_envs 4 --headless --video
+./external_tools/IsaacLab/isaaclab.sh -p scripts/train_rsl_rl.py --task Isaac-Cartpole-v0 --num_envs 64 --headless --video
 """
+
+# Copyright (c) 2022-2025, The Isaac Lab Project Developers.
+# All rights reserved.
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+"""Script to train RL agent with RSL-RL."""
+"""Launch Isaac Sim Simulator first."""
+
 import argparse
-from utils import cli_args
+import sys
+
 from isaaclab.app import AppLauncher
 
-import os
-import sys
-import torch
-from datetime import datetime
+# local imports
+from utils import cli_args  # isort: skip
 
 
-
-# ----------------- Argument parsing ------------------
-parser = argparse.ArgumentParser(description="Train the TACTOR policy for tactile shape exploration.")
+# add argparse arguments
+parser = argparse.ArgumentParser(description="Train an RL agent with RSL-RL.")
 parser.add_argument("--video", action="store_true", default=False, help="Record videos during training.")
 parser.add_argument("--video_length", type=int, default=200, help="Length of the recorded video (in steps).")
 parser.add_argument("--video_interval", type=int, default=2000, help="Interval between video recordings (in steps).")
@@ -35,60 +42,80 @@ if args_cli.video:
 # clear out sys.argv for Hydra
 sys.argv = [sys.argv[0]] + hydra_args
 
-# -------------- Launch simulator ------------------
 # launch omniverse app
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
-# Enable fast math
-torch.backends.cuda.matmul.allow_tf32 = True
-torch.backends.cudnn.allow_tf32 = True
-torch.backends.cudnn.deterministic = False
-torch.backends.cudnn.benchmark = False
-
+"""Rest everything follows."""
 
 import gymnasium as gym
+import os
+import torch
+from datetime import datetime
 
 from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlVecEnvWrapper
 from rsl_rl.runners import OnPolicyRunner
 
 from isaaclab.envs import (
     DirectMARLEnv,
+    DirectMARLEnvCfg,
     DirectRLEnvCfg,
     ManagerBasedRLEnvCfg,
     multi_agent_to_single_agent,
 )
-from isaaclab.utils.io import dump_pickle, dump_yaml
 from isaaclab.utils.dict import print_dict
+from isaaclab.utils.io import dump_pickle, dump_yaml
 
+import isaaclab_tasks  # noqa: F401
 from isaaclab_tasks.utils import get_checkpoint_path
 from isaaclab_tasks.utils.hydra import hydra_task_config
-
 import tactor_rl.tasks.tactor, tactor_rl.tasks.shape_explore
-import tactor_rl.networks
 
-# ----------------- Main Training Logic ------------------
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+torch.backends.cudnn.deterministic = False
+torch.backends.cudnn.benchmark = False
+
+
 @hydra_task_config(args_cli.task, "rsl_rl_cfg_entry_point")
-def main(env_cfg: DirectRLEnvCfg | ManagerBasedRLEnvCfg, agent_cfg: RslRlOnPolicyRunnerCfg):
+def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agent_cfg: RslRlOnPolicyRunnerCfg):
+    """Train with RSL-RL agent."""
+    # override configurations with non-hydra CLI arguments
     agent_cfg = cli_args.update_rsl_rl_cfg(agent_cfg, args_cli)
-    env_cfg.scene.num_envs = args_cli.num_envs or env_cfg.scene.num_envs
-    agent_cfg.max_iterations = args_cli.max_iterations or agent_cfg.max_iterations
-    env_cfg.seed = agent_cfg.seed
-    env_cfg.sim.device = args_cli.device or env_cfg.sim.device
+    env_cfg.scene.num_envs = args_cli.num_envs if args_cli.num_envs is not None else env_cfg.scene.num_envs
+    agent_cfg.max_iterations = (
+        args_cli.max_iterations if args_cli.max_iterations is not None else agent_cfg.max_iterations
+    )
 
-    log_root_path = os.path.abspath(os.path.join("logs", "rsl_rl", agent_cfg.experiment_name))
+    # set the environment seed
+    # note: certain randomizations occur in the environment initialization so we set the seed here
+    env_cfg.seed = agent_cfg.seed
+    env_cfg.sim.device = args_cli.device if args_cli.device is not None else env_cfg.sim.device
+
+    # specify directory for logging experiments
+    log_root_path = os.path.join("logs", "rsl_rl", agent_cfg.experiment_name)
+    log_root_path = os.path.abspath(log_root_path)
+    print(f"[INFO] Logging experiment in directory: {log_root_path}")
+    # specify directory for logging runs: {time-stamp}_{run_name}
     log_dir = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    # This way, the Ray Tune workflow can extract experiment name.
+    print(f"Exact experiment name requested from command line: {log_dir}")
     if agent_cfg.run_name:
         log_dir += f"_{agent_cfg.run_name}"
     log_dir = os.path.join(log_root_path, log_dir)
-    print(f"[TACTOR] Logging to: {log_dir}")
 
-    # Make gym-compatible task from IsaacLab
+    # create isaac environment
     env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
+
+    # convert to single-agent instance if required by the RL algorithm
     if isinstance(env.unwrapped, DirectMARLEnv):
         env = multi_agent_to_single_agent(env)
 
-    # Video recorder
+    # save resume path before creating a new log_dir
+    if agent_cfg.resume:
+        resume_path = get_checkpoint_path(log_root_path, agent_cfg.load_run, agent_cfg.load_checkpoint)
+
+    # wrap for video recording
     if args_cli.video:
         video_kwargs = {
             "video_folder": os.path.join(log_dir, "videos", "train"),
@@ -96,33 +123,38 @@ def main(env_cfg: DirectRLEnvCfg | ManagerBasedRLEnvCfg, agent_cfg: RslRlOnPolic
             "video_length": args_cli.video_length,
             "disable_logger": True,
         }
-        print("[TACTOR] Video recording enabled.")
-        print_dict(video_kwargs)
+        print("[INFO] Recording videos during training.")
+        print_dict(video_kwargs, nesting=4)
         env = gym.wrappers.RecordVideo(env, **video_kwargs)
 
-    # Wrap for RSL-RL
+    # wrap around environment for rsl-rl
     env = RslRlVecEnvWrapper(env)
-    print("[INFO] Finish Wrapping for RSL-RL")
 
-    # ------------ Use TACTOR policy ------------
+    # create runner from rsl-rl
     runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=log_dir, device=agent_cfg.device)
+    # write git state to logs
     runner.add_git_repo_to_log(__file__)
-
+    # load the checkpoint
     if agent_cfg.resume:
-        resume_path = get_checkpoint_path(log_root_path, agent_cfg.load_run, agent_cfg.load_checkpoint)
-        print(f"[TACTOR] Resuming from checkpoint: {resume_path}")
+        print(f"[INFO]: Loading model checkpoint from: {resume_path}")
+        # load previously trained model
         runner.load(resume_path)
 
-    # Save configs
+    # dump the configuration into log-directory
     dump_yaml(os.path.join(log_dir, "params", "env.yaml"), env_cfg)
     dump_yaml(os.path.join(log_dir, "params", "agent.yaml"), agent_cfg)
     dump_pickle(os.path.join(log_dir, "params", "env.pkl"), env_cfg)
     dump_pickle(os.path.join(log_dir, "params", "agent.pkl"), agent_cfg)
 
-    # Train!
+    # run training
     runner.learn(num_learning_iterations=agent_cfg.max_iterations, init_at_random_ep_len=True)
+
+    # close the simulator
     env.close()
 
+
 if __name__ == "__main__":
+    # run the main function
     main()
+    # close sim app
     simulation_app.close()

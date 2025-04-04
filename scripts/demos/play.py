@@ -74,7 +74,7 @@ from isaaclab_assets import (
     ALLEGRO_HAND_CFG
 )
 
-from ..assets import UR10e_ALLEGRO_CFG
+from ...assets import UR10e_ALLEGRO_CFG
 
 # isort: on
 
