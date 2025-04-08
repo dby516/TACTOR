@@ -48,22 +48,29 @@ class TactorEnvCfg(DirectRLEnvCfg):
             update_period=0.0,
             history_length=6,
             debug_vis=True,
+            track_pose=True
         )
         for i in range(64)
     ]
 
-    # object placeholder config (will be overridden per-shape in TacShapeExploreEnv)
+    # Object TODO: replace it with ShapeNet object
     object_cfg: RigidObjectCfg = RigidObjectCfg(
         prim_path="/World/envs/env_.*/Object",
-        spawn=sim_utils.UsdFileCfg(
-            usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/DexCube/dex_cube_instanceable.usd",
-            scale=(5.0, 5.0, 5.0),
-            mass_props=sim_utils.MassPropertiesCfg(mass=5.0),
+        spawn=sim_utils.CuboidCfg(
+            size=(0.5, 0.5, 0.5),
             rigid_props=sim_utils.RigidBodyPropertiesCfg(disable_gravity=True, max_linear_velocity=0.0),
-            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.5, 1.0, 0.0), metallic=0.2),
+            mass_props=sim_utils.MassPropertiesCfg(mass=100.0),
             collision_props=sim_utils.CollisionPropertiesCfg(),
+            physics_material=sim_utils.RigidBodyMaterialCfg(static_friction=1.0),
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 1.0, 0.0), metallic=0.2),
+            joint_props=sim_utils.JointPropertiesCfg(
+                joint_type="prismatic",
+                axis=(0.0, 0.0, 1.0),
+                limits=(0.0, 0.0),  # lock the motion completely
+                parent_path="/World",  # joint connects to the world
+            ),
         ),
-        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.5), rot=(1.0, 0.0, 0.0, 0.0)),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.5)),
     )
 
     # table
