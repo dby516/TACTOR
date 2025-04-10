@@ -6,11 +6,10 @@ from isaaclab.assets import ArticulationCfg, RigidObjectCfg
 from isaaclab.sensors import ContactSensorCfg
 from isaaclab.envs import DirectRLEnvCfg
 from isaaclab.scene import InteractiveSceneCfg
-from isaaclab.sim import PhysxCfg, SimulationCfg
+from isaaclab.sim import PhysxCfg, SimulationCfg, UsdFileCfg
 from isaaclab.sim.spawners.materials.physics_materials_cfg import RigidBodyMaterialCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
-
 
 @configclass
 class TactorEnvCfg(DirectRLEnvCfg):
@@ -37,14 +36,12 @@ class TactorEnvCfg(DirectRLEnvCfg):
     )
 
     # robot
-    # robot_cfg: ArticulationCfg = UR10e_TACTIP_CFG.replace(prim_path="/World/envs/env_.*/Robot")
     robot_cfg: ArticulationCfg = TACTIP_CFG.replace(prim_path="/World/envs/env_.*/Robot")
-    # robot_cfg: ArticulationCfg = ALLEGRO_HAND_CFG.replace(prim_path="/World/envs/env_.*/Robot")
-
+    
     # contact sensors
     contact_sensors: list[ContactSensorCfg] = [
         ContactSensorCfg(
-            prim_path=f"/World/envs/env_.*/Robot/standard_tactip/sensor_{i}",
+            prim_path=f"/World/envs/env_.*/Robot/sensor_{i}",
             update_period=0.0,
             history_length=6,
             debug_vis=True,
@@ -53,24 +50,18 @@ class TactorEnvCfg(DirectRLEnvCfg):
         for i in range(64)
     ]
 
-    # Object TODO: replace it with ShapeNet object
+    # Object: replace it with ShapeNet object
     object_cfg: RigidObjectCfg = RigidObjectCfg(
         prim_path="/World/envs/env_.*/Object",
         spawn=sim_utils.CuboidCfg(
             size=(0.5, 0.5, 0.5),
-            rigid_props=sim_utils.RigidBodyPropertiesCfg(disable_gravity=True, max_linear_velocity=0.0),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(disable_gravity=True, max_linear_velocity=0.0, max_angular_velocity=0.0), 
             mass_props=sim_utils.MassPropertiesCfg(mass=100.0),
             collision_props=sim_utils.CollisionPropertiesCfg(),
             physics_material=sim_utils.RigidBodyMaterialCfg(static_friction=1.0),
-            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 1.0, 0.0), metallic=0.2),
-            joint_props=sim_utils.JointPropertiesCfg(
-                joint_type="prismatic",
-                axis=(0.0, 0.0, 1.0),
-                limits=(0.0, 0.0),  # lock the motion completely
-                parent_path="/World",  # joint connects to the world
-            ),
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.5, 1.0, 0.0)),
         ),
-        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.5)),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.0))
     )
 
     # table
