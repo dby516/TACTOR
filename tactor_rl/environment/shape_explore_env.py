@@ -7,6 +7,7 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 from isaaclab.envs.scene import BaseScene
 from isaaclab.sim.spawners import UsdFileCfg
 from tactor_rl.envs.tactor_env_cfg import TactorEnvCfg
+from omni.isaac.debug_draw import _debug_draw
 
 
 class TacShapeExploreEnv(BaseScene):
@@ -62,9 +63,34 @@ class TacShapeExploreEnv(BaseScene):
                 scale=self.cfg.object_scale
             )
             object_cfg.func(f"{ns}/Object", object_cfg, translation=object_pos)
+        self._draw_sensor_directions() # Draw arrows
 
     def get_scene_entities(self):
         return self.articulations
 
     def get_origins(self):
         return self.origins
+
+    def _draw_sensor_directions(self):
+        for i, origin in enumerate(self.origins):
+            for j in range(64):  
+                sensor_path = f"/World/envs/env_{i}/Robot/sensor_{j}"
+    
+                pose = sim_utils.get_prim_world_pose(sensor_path)
+                if pose is None:
+                    continue
+    
+                pos, rot = pose  
+                rot_mat = sim_utils.quat_to_matrix(rot)  
+    
+                z_dir = rot_mat[:, 2]  
+                arrow_start = np.array(pos)
+                arrow_end = arrow_start + 0.02 * np.array(z_dir)
+    
+                # Draw red arrow from sensor origin along Z direction
+                _debug_draw.draw_line(
+                    arrow_start.tolist(),
+                    arrow_end.tolist(),
+                    color=[1.0, 0.0, 0.0],
+                    thickness=1.0
+                )
