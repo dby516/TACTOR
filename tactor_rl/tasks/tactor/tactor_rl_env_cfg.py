@@ -61,6 +61,7 @@ class TactorEnvCfg(DirectRLEnvCfg):
             physics_material=sim_utils.RigidBodyMaterialCfg(static_friction=1.0),
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.5, 1.0, 0.0)),
         ),
+        # spawn=sim_utils.UsdFileCfg(usd_path="../../../../assets/objects/lamp.usd")
         init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.0))
     )
 
