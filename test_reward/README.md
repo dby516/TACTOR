@@ -124,8 +124,8 @@ We evaluate each using three reward functions.
 
 #### Simulated Data Collection Process
 
-- [Exploratory](plots_pc/exploratory.mp4)  
-- [Redundant](plots_pc/redundant.mp4)
+- [Exploratory](plots_pc/exploratory.gif)  
+- [Redundant](plots_pc/redundant.gif)
 
 ---
 
