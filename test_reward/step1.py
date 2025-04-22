@@ -1,3 +1,18 @@
+"""
+Step 1: Simulate PC(t) — Bad Initial Point Cloud
+
+This script processes raw point clouds from ShapeNetCoreV2 (each with 2048 points)
+and generates a simulated initial point cloud (PC(t)) by selecting one random point
+and sampling its 255 nearest neighbors — resulting in a 256-point cloud focused
+on a small localized region.
+
+Purpose: Mimic poor initial tactile exploration where contact points are densely
+clustered in a limited surface area.
+
+Input:  data/shapenetcorev2_PC_2048/raw/pc_*.ply
+Output: data/shapenetcorev2_PC_2048/step1/pc_*_0.ply
+"""
+
 import numpy as np
 import os
 from glob import glob

@@ -100,3 +100,54 @@ An optimal policy will:
 1. First maximize contact quantity.
 2. Then diversify spatial coverage.
 3. Eventually saturate the object's surface efficiently.
+
+
+Here’s a complete and polished version of your README `## Testing Result` section, with analysis:
+
+---
+
+### Testing Result
+
+We simulated a 20-step contact collection process using 3 exploration strategies:
+
+- **No Contact**: PC(t) remains identical at every step.
+- **Redundant Sampling**: New points are near previously explored areas.
+- **Active Exploration**: New points target previously unexplored surface regions.
+
+We evaluate each using three reward functions.
+
+---
+
+#### Reward Curves
+
+![Reward Comparison](plots_pc/reward_comparison.png)
+
+#### Simulated Data Collection Process
+
+- [Exploratory](plots_pc/exploratory.mp4)  
+- [Redundant](plots_pc/redundant.mp4)
+
+---
+
+#### Analysis
+
+- All 3 reward functions clearly distinguish **contact vs no contact**, confirming their basic responsiveness to tactile feedback.
+  
+**PointNet Reward**
+- **Behavior**: Reward rises early but quickly decays over steps, even in exploratory strategy.
+- **Reason**: PointNet global features saturate — once core object shape is captured, further changes produce smaller embedding shifts.
+- **Pros**: Good for early-stage reward; captures semantic features beyond raw geometry.
+- **Cons**: May prematurely **flatten gradient**, discouraging continued exploration. Risky for long-horizon policy learning unless boosted or shaped.
+  
+**Chamfer Distance Reward**
+- **Behavior**: Responds more linearly to point cloud changes; less sensitive to saturation.
+- **Observation**: Exploratory strategy consistently receives moderate rewards, while redundant steps get mildly penalized.
+- **Pros**: Smooth, interpretable, and shape-aware.
+- **Cons**: Geometric-only — ignores contact forces or semantic utility.
+  
+**Voxel Occupancy Reward**
+- **Behavior**: Severely penalizes redundant exploration (repeats in occupied voxels), but provides consistent reward if any new voxel is touched.
+- **Observation**: Doesn’t decay over time — if new voxels are hit, reward remains high.
+- **Pros**: Great for enforcing **uniform spatial coverage**.
+- **Cons**: Not aware of overall shape; treats all space equally, so it may **overvalue sparse outliers** or noisy detections.
+
