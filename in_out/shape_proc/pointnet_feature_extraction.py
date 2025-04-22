@@ -27,7 +27,7 @@ class PointCloudDataset(Dataset):
         return torch.from_numpy(pc).float(), self.files[idx]
 
 
-def extract_pointnet_features(pointcloud_dir, output_dir, pretrained_path):
+def extract_pointnet_features_from_dir(pointcloud_dir, output_dir, pretrained_path):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     dataset = PointCloudDataset(pointcloud_dir)
@@ -49,6 +49,22 @@ def extract_pointnet_features(pointcloud_dir, output_dir, pretrained_path):
                 out_path = os.path.join(output_dir, base)
                 np.save(out_path, feature_vec.cpu().numpy())
                 print(f"Saved feature to {out_path}")
+
+def extract_pointnet_features(pointcloud, model):
+    """
+    Extract PointNet features from raw pointcloud.
+    Args:
+    input:
+        pointcloud: raw points (1, 3, N)
+        model: pretrained PointNet model
+    output:
+        features
+    
+    
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    features = model(pointcloud)
+    return features
 
 
 if __name__ == '__main__':
