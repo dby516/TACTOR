@@ -1,58 +1,163 @@
-"""
-Checkpoint Loader for PointNet++
-Author: Benny (adapted by Bingyao)
-Date: Apr 2025
-"""
-from external_tools.point_net.models.pointnet_utils import PointNetEncoder
-# import argparse
-# import os
-# import sys
-# import torch
-# import importlib
+# Copyright (c) 2022-2025, The Isaac Lab Project Developers.
+# All rights reserved.
+#
+# SPDX-License-Identifier: BSD-3-Clause
 
-# # Set paths
-# ROOT_DIR = '/home/bingyao/tactor/external_tools/point_net'
-# sys.path.append(os.path.join(ROOT_DIR, 'models'))
+# ./external_tools/IsaacLab/isaaclab.sh -p scripts/test.py --task Isaac-Tactor-RL-v0 --checkpoint /PATHTOFILE/model_0.pt --headless
+
+"""Script to play a checkpoint of a trained TACTOR agent using RSL-RL."""
+
+"""Launch Isaac Sim Simulator first."""
+
+import argparse
+from isaaclab.app import AppLauncher
+
+# local imports
+from utils import cli_args  # isort: skip
+
+# ----------------- Argument parsing ------------------
+parser = argparse.ArgumentParser(description="Test the TACTOR policy for tactile shape exploration.")
+parser.add_argument("--video", action="store_true", default=False, help="Record videos during evaluation.")
+parser.add_argument("--video_length", type=int, default=200, help="Length of the recorded video (in steps).")
+parser.add_argument(
+    "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
+)
+parser.add_argument("--num_envs", type=int, default=None, help="Number of environments to simulate.")
+parser.add_argument("--task", type=str, default=None, help="Name of the task.")
+parser.add_argument(
+    "--use_pretrained_checkpoint",
+    action="store_true",
+    help="Use the pre-trained checkpoint from Nucleus.",
+)
+parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
+# append RSL-RL cli arguments
+cli_args.add_rsl_rl_args(parser)
+# append AppLauncher cli args
+AppLauncher.add_app_launcher_args(parser)
+args_cli = parser.parse_args()
+
+# always enable cameras to record video
+if args_cli.video:
+    args_cli.enable_cameras = True
+
+# launch omniverse app
+app_launcher = AppLauncher(args_cli)
+simulation_app = app_launcher.app
+
+"""Rest everything follows."""
+
+import gymnasium as gym
+import os
+import time
+import torch
+
+from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlVecEnvWrapper, export_policy_as_jit, export_policy_as_onnx
+from rsl_rl.runners import OnPolicyRunner
+
+from isaaclab.envs import DirectMARLEnv, multi_agent_to_single_agent
+from isaaclab.utils.assets import retrieve_file_path
+from isaaclab.utils.dict import print_dict
+from isaaclab.utils.pretrained_checkpoint import get_published_pretrained_checkpoint
+
+import isaaclab_tasks  # noqa: F401
+from isaaclab_tasks.utils import get_checkpoint_path, parse_env_cfg
+
+import tactor_rl.tasks.tactor, tactor_rl.tasks.shape_explore
+import tactor_rl.networks
 
 
-# def parse_args():
-#     parser = argparse.ArgumentParser('Load Checkpoint')
-#     parser.add_argument('--use_cpu', action='store_true', default=False, help='Use CPU')
-#     parser.add_argument('--gpu', type=str, default='0', help='GPU device ID')
-#     parser.add_argument('--num_category', type=int, default=40, help='Model class count')
-#     parser.add_argument('--log_dir', type=str, required=True, help='Name under log/classification/')
-#     parser.add_argument('--use_normals', action='store_true', default=False, help='Use normals')
-#     return parser.parse_args()
+def main():
+    """Play with a trained TACTOR policy."""
+    # parse configuration
+    env_cfg = parse_env_cfg(
+        args_cli.task, device=args_cli.device, num_envs=args_cli.num_envs, use_fabric=not args_cli.disable_fabric
+    )
+    agent_cfg: RslRlOnPolicyRunnerCfg = cli_args.parse_rsl_rl_cfg(args_cli.task, args_cli)
+
+    # specify directory for loading experiments
+    log_root_path = os.path.join("logs", "rsl_rl", agent_cfg.experiment_name)
+    log_root_path = os.path.abspath(log_root_path)
+    print(f"[INFO] Loading experiment from directory: {log_root_path}")
+
+    # find the checkpoint
+    if args_cli.use_pretrained_checkpoint:
+        resume_path = get_published_pretrained_checkpoint("rsl_rl", args_cli.task)
+        if not resume_path:
+            print("[INFO] Unfortunately, a pre-trained checkpoint is currently unavailable for this task.")
+            return
+    elif args_cli.checkpoint:
+        resume_path = retrieve_file_path(args_cli.checkpoint)
+    else:
+        resume_path = get_checkpoint_path(log_root_path, agent_cfg.load_run, agent_cfg.load_checkpoint)
+
+    log_dir = os.path.dirname(resume_path)
+
+    # create environment
+    env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
+
+    # convert to single-agent instance if required
+    if isinstance(env.unwrapped, DirectMARLEnv):
+        env = multi_agent_to_single_agent(env)
+
+    # wrap for video recording
+    if args_cli.video:
+        video_kwargs = {
+            "video_folder": os.path.join(log_dir, "videos", "play"),
+            "step_trigger": lambda step: step == 0,
+            "video_length": args_cli.video_length,
+            "disable_logger": True,
+        }
+        print("[INFO] Recording videos during evaluation.")
+        print_dict(video_kwargs, nesting=4)
+        env = gym.wrappers.RecordVideo(env, **video_kwargs)
+
+    # wrap around environment for rsl-rl
+    env = RslRlVecEnvWrapper(env)
+
+    print(f"[INFO] Loading model checkpoint from: {resume_path}")
+    # load previously trained model
+    ppo_runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
+    ppo_runner.load(resume_path)
+
+    # obtain the trained policy for inference
+    policy = ppo_runner.get_inference_policy(device=env.unwrapped.device)
+
+    # export policy to onnx/jit
+    export_model_dir = os.path.join(os.path.dirname(resume_path), "exported")
+    export_policy_as_jit(
+        ppo_runner.alg.actor_critic, ppo_runner.obs_normalizer, path=export_model_dir, filename="policy.pt"
+    )
+    export_policy_as_onnx(
+        ppo_runner.alg.actor_critic, normalizer=ppo_runner.obs_normalizer, path=export_model_dir, filename="policy.onnx"
+    )
+
+    dt = env.unwrapped.physics_dt
+
+    # reset environment
+    obs, _ = env.get_observations()
+    timestep = 0
+    # simulate environment
+    while simulation_app.is_running():
+        start_time = time.time()
+        with torch.inference_mode():
+            actions = policy(obs)
+            obs, _, _, _ = env.step(actions)
+
+        if args_cli.video:
+            timestep += 1
+            # Exit after one video is recorded
+            if timestep == args_cli.video_length:
+                break
+
+        # time delay for real-time evaluation
+        sleep_time = dt - (time.time() - start_time)
+        if args_cli.real_time and sleep_time > 0:
+            time.sleep(sleep_time)
+
+    # close
+    env.close()
 
 
-# def main(args):
-#     '''Set device'''
-#     if not args.use_cpu:
-#         os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
-
-#     '''Set log/checkpoint path'''
-#     experiment_dir = os.path.join(ROOT_DIR, 'log/classification', args.log_dir)
-#     model_log_path = os.path.join(experiment_dir, 'logs')
-#     checkpoint_path = os.path.join(experiment_dir, 'checkpoints', 'best_model.pth')
-
-#     '''Load model'''
-#     model_name = os.listdir(model_log_path)[0].split('.')[0]
-#     print(f"[INFO] Loading model: {model_name}")
-#     model = importlib.import_module(model_name)
-#     classifier = model.get_model(args.num_category, normal_channel=args.use_normals)
-
-#     if not args.use_cpu:
-#         classifier = classifier.cuda()
-
-#     checkpoint = torch.load(checkpoint_path, map_location='cpu' if args.use_cpu else None)
-#     classifier.load_state_dict(checkpoint['model_state_dict'])
-#     classifier.eval()
-
-#     print(f"[SUCCESS] Loaded model from {checkpoint_path}")
-
-#     print("model: ", classifier)
-
-
-# if __name__ == '__main__':
-#     args = parse_args()
-#     main(args)
+if __name__ == "__main__":
+    main()
+    simulation_app.close()
