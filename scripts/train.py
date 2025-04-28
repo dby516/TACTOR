@@ -10,7 +10,7 @@ import os
 import sys
 import torch
 from datetime import datetime
-
+import wandb
 
 
 # ----------------- Argument parsing ------------------
@@ -22,6 +22,7 @@ parser.add_argument("--num_envs", type=int, default=None, help="Number of enviro
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
 parser.add_argument("--seed", type=int, default=None, help="Seed used for the environment")
 parser.add_argument("--max_iterations", type=int, default=None, help="RL Policy training iterations.")
+# parser.add_argument("--logger", type=str, default=None, help="Type of logging.")
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
 # append AppLauncher cli args
@@ -88,6 +89,20 @@ def main(env_cfg: DirectRLEnvCfg | ManagerBasedRLEnvCfg, agent_cfg: RslRlOnPolic
     if isinstance(env.unwrapped, DirectMARLEnv):
         env = multi_agent_to_single_agent(env)
 
+    # Log into WandB
+    wandb.init(
+        project="TACTOR-ShapeExploration",
+        name=agent_cfg.experiment_name or "default_run",
+        config={
+            "task": args_cli.task,
+            "num_envs": env_cfg.scene.num_envs,
+            "max_iterations": agent_cfg.max_iterations,
+            "seed": agent_cfg.seed,
+            "device": agent_cfg.device,
+        },
+        dir=log_dir,
+    )
+
     # Video recorder
     if args_cli.video:
         video_kwargs = {
@@ -102,11 +117,13 @@ def main(env_cfg: DirectRLEnvCfg | ManagerBasedRLEnvCfg, agent_cfg: RslRlOnPolic
 
     # Wrap for RSL-RL
     env = RslRlVecEnvWrapper(env)
+    # Inject critic's PointNetEncoder into the environment
     print("[INFO] Finish Wrapping for RSL-RL")
 
     # ------------ Use TACTOR policy ------------
     runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=log_dir, device=agent_cfg.device)
     runner.add_git_repo_to_log(__file__)
+    env.unwrapped.pointnet_encoder = runner.alg.actor_critic.pointnet_encoder
 
     if agent_cfg.resume:
         resume_path = get_checkpoint_path(log_root_path, agent_cfg.load_run, agent_cfg.load_checkpoint)
