@@ -11,7 +11,7 @@ from isaaclab.utils import configclass
 
 @configclass
 class TactorPPORunnerCfg(RslRlOnPolicyRunnerCfg):
-    num_steps_per_env = 16
+    num_steps_per_env = 64
     max_iterations = 10000
     save_interval = 250
     experiment_name = "tactor"
