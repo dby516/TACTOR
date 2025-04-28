@@ -55,11 +55,12 @@ class ContactHandSceneCfg(InteractiveSceneCfg):
         init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.15)),
     )
 
-    contact_forces = ContactSensorCfg(
+    contact_force_debug = ContactSensorCfg(
         prim_path="{ENV_REGEX_NS}/Robot/standard_tactip/tactip_body",
         update_period=0.0,
         history_length=6,
         debug_vis=True,
+        track_pose=True
     )
 
 # --- Sensor Layout ---
@@ -131,29 +132,31 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
         scene.update(sim_dt)
 
         forces = np.zeros(64)
-        for i in range(64):
-            f_all = scene[f"contact_sensor_{i}"].data.net_forces_w  # [num_envs, 3]
-            forces[i] = torch.norm(f_all, dim=1).sum().item()
+        # for i in range(64):
+        #     f_all = scene[f"contact_sensor_{i}"].data.net_forces_w  # [num_envs, 3]
+        #     forces[i] = torch.norm(f_all, dim=1).sum().item()
 
-        update_plot(forces, count)
+        # update_plot(forces, count)
+
+        print("position, ", scene["contact_force_debug"].data.pos_w)
 
         count += 1
-        if count >= 150:
-            print("[INFO]: Reached 350 steps. Shutting down...")
-            break
+        # if count >= 150:
+        #     print("[INFO]: Reached 350 steps. Shutting down...")
+        #     break
 
 # --- Main ---
 def main():
     sim_cfg = sim_utils.SimulationCfg(dt=0.01, device=args_cli.device)
     sim = sim_utils.SimulationContext(sim_cfg)
     sim.set_camera_view([3.5, 0.0, 3.2], [0.0, 0.0, 0.5])
-    for i in range(64):
-        setattr(ContactHandSceneCfg, f"contact_sensor_{i}", ContactSensorCfg(
-            prim_path=f"{{ENV_REGEX_NS}}/Robot/standard_tactip/sensor_{i}",
-            update_period=0.0,
-            history_length=6,
-            debug_vis=True,
-        ))
+    # for i in range(64):
+    #     setattr(ContactHandSceneCfg, f"contact_sensor_{i}", ContactSensorCfg(
+    #         prim_path=f"{{ENV_REGEX_NS}}/Robot/standard_tactip/sensor_{i}",
+    #         update_period=0.0,
+    #         history_length=6,
+    #         debug_vis=True,
+    #     ))
     scene_cfg = ContactHandSceneCfg(num_envs=args_cli.num_envs, env_spacing=2.0)
     scene = InteractiveScene(scene_cfg)
     sim.reset()
