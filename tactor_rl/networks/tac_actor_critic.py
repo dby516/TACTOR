@@ -41,8 +41,8 @@ class TactorActorCritic(nn.Module):
 
     def __init__(
         self,
-        num_actor_obs=71,
-        num_critic_obs=576,
+        num_actor_obs=3463,  # 256*3 + 64*6 + 3 + 4 + 7
+        num_critic_obs=3463, # same as actor
         num_actions=7,
         actor_hidden_dims=[256, 256],
         critic_hidden_dims=[256, 256],
@@ -61,41 +61,38 @@ class TactorActorCritic(nn.Module):
             "tanh": nn.Tanh,
             "leakyrelu": nn.LeakyReLU,
         }
-        if activation.lower() not in activation_map:
-            raise ValueError(f"Unsupported activation: {activation}")
-        activation_fn = activation_map[activation.lower()]()
+        activation_fn = activation_map.get(activation.lower(), nn.ELU)()
 
         self.pointnet_encoder = PointNetEncoderTrans(output_dim=256)
 
-        # Contact processor for actor
+        # Contact processor for 64 sensors × (3 pos + 3 force)
         self.contact_branch = nn.Sequential(
-            nn.Linear(64 * 3, 128),
+            nn.Linear(64 * 6, 128),
             activation_fn,
             nn.Linear(128, 64),
             activation_fn
         )
 
-        # Actor: contact + ee pose + pointnet feature
+        # Actor network: [PointNet + Contact + Pose]
         self.actor_input_dim = 256 + 64 + 7
         self.actor = nn.Sequential(
-            nn.Linear(self.actor_input_dim, 256),
+            nn.Linear(self.actor_input_dim, actor_hidden_dims[0]),
             activation_fn,
-            nn.Linear(256, 128),
+            nn.Linear(actor_hidden_dims[0], actor_hidden_dims[1]),
             activation_fn,
-            nn.Linear(128, num_actions)
+            nn.Linear(actor_hidden_dims[1], num_actions)
         )
 
-        # Critic: difference of two point features + action
-        self.critic_input_dim = 256 * 2 + 7
+        # Critic network (same input for now)
+        self.critic_input_dim = self.actor_input_dim + num_actions
         self.critic = nn.Sequential(
-            nn.Linear(self.critic_input_dim, 256),
+            nn.Linear(self.critic_input_dim, critic_hidden_dims[0]),
             activation_fn,
-            nn.Linear(256, 128),
+            nn.Linear(critic_hidden_dims[0], critic_hidden_dims[1]),
             activation_fn,
-            nn.Linear(128, 1)
+            nn.Linear(critic_hidden_dims[1], 1)
         )
 
-        # Noise
         if self.noise_std_type == "scalar":
             self.std = nn.Parameter(init_noise_std * torch.ones(num_actions))
         elif self.noise_std_type == "log":
@@ -110,13 +107,13 @@ class TactorActorCritic(nn.Module):
         N = 256
 
         start = 0
-        pc_flat = actor_obs[:, start:start + 3 * N]               # [B, 3072]
+        pc_flat = actor_obs[:, start:start + 3 * N]
         start += 3 * N
-        tactile_flat = actor_obs[:, start:start + 64 * 3]         # [B, 192]
-        start += 64 * 3
-        pos_quat = actor_obs[:, start:start + 7]                  # [B, 7]
+        tactile_flat = actor_obs[:, start:start + 64 * 6]
+        start += 64 * 6
+        pos_quat = actor_obs[:, start:start + 7]
 
-        pc = pc_flat.view(B, 3, N)                                # [B, 3, 1024]
+        pc = pc_flat.view(B, 3, N)
         contact_encoded = self.contact_branch(tactile_flat)
         pointnet_feat = self.pointnet_encoder(pc)
 
@@ -125,22 +122,23 @@ class TactorActorCritic(nn.Module):
 
     def _split_critic_inputs(self, critic_obs):
         B = critic_obs.shape[0]
-        num_points = 256
-        pcd_dim = 3 * num_points  # 3072
+        N = 256
 
-        pcd_t_flat   = critic_obs[:, :pcd_dim]
-        pcd_t_1_flat = critic_obs[:, pcd_dim:2*pcd_dim]
-        actions      = critic_obs[:, 2*pcd_dim:]
+        start = 0
+        pc_flat = critic_obs[:, start:start + 3 * N]
+        start += 3 * N
+        tactile_flat = critic_obs[:, start:start + 64 * 6]
+        start += 64 * 6
+        pos_quat = critic_obs[:, start:start + 7]
+        start += 7
+        actions = critic_obs[:, start:start + self.action_dim]
 
-        pcd_t   = pcd_t_flat.view(B, 3, num_points)
-        pcd_t_1 = pcd_t_1_flat.view(B, 3, num_points)
+        pc = pc_flat.view(B, 3, N)
+        contact_encoded = self.contact_branch(tactile_flat)
+        pointnet_feat = self.pointnet_encoder(pc)
 
-        feat_t   = self.pointnet_encoder(pcd_t)
-        feat_t_1 = self.pointnet_encoder(pcd_t_1)
-
-        critic_input = torch.cat([feat_t, feat_t_1, actions], dim=-1)
+        critic_input = torch.cat([pointnet_feat, contact_encoded, pos_quat, actions], dim=-1)
         return self.critic(critic_input)
-
     def compute_supervised_loss(self, pcd_accum, pcd_gt):
         feat_accum = self.pointnet_encoder(pcd_accum)  # [B, 256]
         feat_gt = self.pointnet_encoder(pcd_gt)        # [B, 256]
