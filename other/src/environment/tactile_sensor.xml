@@ -1,0 +1,63 @@
+<?xml version="1.0" ?>
+<mujoco>
+    <option timestep="0.001" gravity="0 0 -9.81"/>
+    
+    <!-- World -->
+    <worldbody>
+        <!-- Ground -->
+        <geom type="plane" size="1 1 0.1" rgba="0.8 0.8 0.8 1"/>
+        
+        <!-- Robot Base -->
+        <body name="robot_base" pos="0 0 0.5">
+            <joint type="free"/>
+            <geom type="cylinder" size="0.05 0.1" rgba="0.7 0.7 0.7 1"/>
+            
+            <!-- Robot Arm -->
+            <body name="arm" pos="0 0 0.2">
+                <joint type="ball" name="arm_joint"/>
+                <geom type="cylinder" size="0.02 0.2" rgba="0.6 0.6 0.6 1"/>
+                
+                <!-- Tactile Sensor -->
+                <body name="tactile_sensor" pos="0 0 0.25">
+                    <joint type="ball" name="sensor_joint"/>
+                    <geom type="sphere" size="0.03" rgba="0.5 0.5 0.5 1"/>
+                    
+                    <!-- Tactile Sensing Elements -->
+                    <body name="sensor_array">
+                        <!-- 64 tactile sensing elements arranged in a grid -->
+                        <!-- Each element is a small sphere that can detect contact -->
+                        <geom type="sphere" name="sensor_sphere" size="0.001" rgba="0.9 0.1 0.1 1" pos="0 0 0.03"/>
+                        <site name="sensor_touch" pos="0 0 0.03" size="0.001" rgba="0.9 0.1 0.1 1"/>
+                        <!-- Add more sensing elements in a grid pattern -->
+                        <!-- This is a simplified version - in practice, you'd want to add all 64 elements -->
+                    </body>
+                </body>
+            </body>
+        </body>
+        
+        <!-- Target Object (can be replaced with different shapes) -->
+        <body name="target" pos="0.2 0 0.1">
+            <joint type="free"/>
+            <geom type="box" size="0.05 0.05 0.05" rgba="0.2 0.8 0.2 1"/>
+        </body>
+    </worldbody>
+    
+    <!-- Actuators -->
+    <actuator>
+        <!-- Robot arm control -->
+        <motor joint="arm_joint" gear="100"/>
+        <motor joint="sensor_joint" gear="50"/>
+    </actuator>
+    
+    <!-- Sensors -->
+    <sensor>
+        <!-- Tactile sensors -->
+        <framepos name="tactile_pos" objtype="geom" objname="sensor_sphere"/>
+        <framequat name="tactile_quat" objtype="geom" objname="sensor_sphere"/>
+        <framelinvel name="tactile_linvel" objtype="geom" objname="sensor_sphere"/>
+        <frameangvel name="tactile_angvel" objtype="geom" objname="sensor_sphere"/>
+        
+        <!-- Contact sensors for each tactile element -->
+        <touch name="tactile_contact" site="sensor_touch"/>
+    </sensor>
+</mujoco> 
