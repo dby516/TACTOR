@@ -38,3 +38,5 @@ multirun/
 *.swp
 *~
 .DS_Store
+venv/
+other/venv/
